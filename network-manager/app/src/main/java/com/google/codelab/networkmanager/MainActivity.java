@@ -41,6 +41,75 @@ public class MainActivity extends AppCompatActivity {
 
     public static final String TASK_ID_PREFIX = "task-id";
 
+    private static final String TAG = "MainActivity";
+    private GcmNetworkManager mGcmNetworkManager;
+    private LocalBroadcastManager mLocalBroadcastManager;
+    private BroadcastReceiver mBroadcastReceiver;
+
+    private TaskAdapter mTaskAdapter;
+    private RecyclerView mRecyclerView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        mTaskAdapter = new TaskAdapter(new ArrayList<TaskItem>());
+
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
+        mRecyclerView = (RecyclerView) findViewById(R.id.recyclerView);
+        mRecyclerView.setLayoutManager(linearLayoutManager);
+        mRecyclerView.setAdapter(mTaskAdapter);
+        mGcmNetworkManager = GcmNetworkManager.getInstance(this);
+        Button bestTimeButton = (Button) findViewById(R.id.bestTimeButton);
+        bestTimeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String taskId = TASK_ID_PREFIX + Calendar.getInstance().getTimeInMillis();
+                Log.d(TAG, "Scheduling oneoff task. " + taskId);
+                TaskItem taskItem = new TaskItem(taskId, TaskItem.ONEOFF_TASK, TaskItem.PENDING_STATUS);
+                new AddTask(view.getContext()).execute(taskItem);
+            }
+        });
+
+        Button nowButton = (Button) findViewById(R.id.nowButton);
+        nowButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String taskId = TASK_ID_PREFIX + Calendar.getInstance().getTimeInMillis();
+                Log.d(TAG, "Creating a Now Task. " + taskId);
+                TaskItem taskItem = new TaskItem(taskId, TaskItem.NOW_TASK, TaskItem.PENDING_STATUS);
+                new AddTask(view.getContext()).execute(taskItem);
+            }
+        });
+
+        mLocalBroadcastManager = LocalBroadcastManager.getInstance(this);
+        mBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String taskId = intent.getStringExtra(CodelabUtil.TASK_ID);
+                String status = intent.getStringExtra(CodelabUtil.TASK_STATUS);
+
+                mTaskAdapter.updateTaskItemStatus(taskId, status);
+            }
+        };
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        mLocalBroadcastManager.registerReceiver(mBroadcastReceiver, new IntentFilter(CodelabUtil.TASK_UPDATE_FILTER));
+        new LoadTask(this).execute();
+    }
+
+    @Override
+    public void onPause() {
+        mLocalBroadcastManager.unregisterReceiver(mBroadcastReceiver);
+        super.onPause();
+    }
+
+
+
     private class LoadTask extends AsyncTask<Void, Void, List<TaskItem>> {
 
         private Context mContext;
@@ -108,70 +177,4 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private static final String TAG = "MainActivity";
-    private GcmNetworkManager mGcmNetworkManager;
-    private LocalBroadcastManager mLocalBroadcastManager;
-    private BroadcastReceiver mBroadcastReceiver;
-
-    private TaskAdapter mTaskAdapter;
-    private RecyclerView mRecyclerView;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        mTaskAdapter = new TaskAdapter(new ArrayList<TaskItem>());
-
-        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
-        mRecyclerView = (RecyclerView) findViewById(R.id.recyclerView);
-        mRecyclerView.setLayoutManager(linearLayoutManager);
-        mRecyclerView.setAdapter(mTaskAdapter);
-        mGcmNetworkManager = GcmNetworkManager.getInstance(this);
-        Button bestTimeButton = (Button) findViewById(R.id.bestTimeButton);
-        bestTimeButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                String taskId = TASK_ID_PREFIX + Calendar.getInstance().getTimeInMillis();
-                Log.d(TAG, "Scheduling oneoff task. " + taskId);
-                TaskItem taskItem = new TaskItem(taskId, TaskItem.ONEOFF_TASK, TaskItem.PENDING_STATUS);
-                new AddTask(view.getContext()).execute(taskItem);
-            }
-        });
-
-        Button nowButton = (Button) findViewById(R.id.nowButton);
-        nowButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                String taskId = TASK_ID_PREFIX + Calendar.getInstance().getTimeInMillis();
-                Log.d(TAG, "Creating a Now Task. " + taskId);
-                TaskItem taskItem = new TaskItem(taskId, TaskItem.NOW_TASK, TaskItem.PENDING_STATUS);
-                new AddTask(view.getContext()).execute(taskItem);
-            }
-        });
-
-        mLocalBroadcastManager = LocalBroadcastManager.getInstance(this);
-        mBroadcastReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                String taskId = intent.getStringExtra(CodelabUtil.TASK_ID);
-                String status = intent.getStringExtra(CodelabUtil.TASK_STATUS);
-
-                mTaskAdapter.updateTaskItemStatus(taskId, status);
-            }
-        };
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        mLocalBroadcastManager.registerReceiver(mBroadcastReceiver, new IntentFilter(CodelabUtil.TASK_UPDATE_FILTER));
-        new LoadTask(this).execute();
-    }
-
-    @Override
-    public void onPause() {
-        mLocalBroadcastManager.unregisterReceiver(mBroadcastReceiver);
-        super.onPause();
-    }
 }
